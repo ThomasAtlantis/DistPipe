@@ -2,6 +2,13 @@
 
 DistPipe is a distributed framework to implement device-cloud collaborative workflow.
 
+## Quickstart
+You can install the latest official version of DistPipe from PyPI:
+
+```shell
+pip install distpipe
+```
+
 ## Usage
 
 ### Step 0: Define connection

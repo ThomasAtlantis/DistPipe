@@ -1,16 +1,17 @@
-from distpipe.distpipe import Node, Pipe
+import sys; sys.path.append("..")
+from distpipe.distpipe import Task, Pipe
 from distpipe.transport import Router
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
-class Layer(Node):
+class Layer(Task):
 
     def process(self, data):
         print(f"{data[0]} + 1 -> {data[0] + 1}")
         return data[0] + 1
 
-class DLayer(Node):
+class DLayer(Task):
 
     def process(self, data):
         print(f"{data[0]} + {data[1]} -> {data[0] + data[1]}")

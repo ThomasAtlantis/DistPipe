@@ -16,7 +16,7 @@ class IOStream:
     def get(self):
         return [q.get() for q in self.q]
 
-class Node(threading.Thread):
+class Task(threading.Thread):
     
     def __init__(self, name, role='client'):
         super().__init__(name=name, daemon=True)
@@ -53,41 +53,41 @@ class Pipe:
 
     def __init__(self, router: Router):
         self.dependencies = []
-        self.nodes: Dict[str, Node] = {}
+        self.tasks: Dict[str, Task] = {}
         self.router = router
         self.role = router.role
 
-    def connect(self, i_node: Node, o_node: Node):
-        if i_node.role == o_node.role == self.role:
+    def connect(self, i_task: Task, o_task: Task):
+        if i_task.role == o_task.role == self.role:
             q = queue.Queue(0)
-            i_node.ostream.q.append(q)
-            o_node.istream.q.append(q)
-        elif i_node.role == self.role:
-            i_node.ostream.q.append(DistQueue(o_node.name, self.router))
-        elif o_node.role == self.role:            
-            o_node.istream.q.append(DistQueue(o_node.name, self.router))
+            i_task.ostream.q.append(q)
+            o_task.istream.q.append(q)
+        elif i_task.role == self.role:
+            i_task.ostream.q.append(DistQueue(o_task.name, self.router))
+        elif o_task.role == self.role:            
+            o_task.istream.q.append(DistQueue(o_task.name, self.router))
 
-    def add(self, srcs: List[Node], tgt: Node):
+    def add(self, srcs: List[Task], tgt: Task):
         for src in srcs:
             self.connect(src, tgt)
         self.dependencies.append((srcs, tgt))
-        self.nodes.update({tgt.name: tgt})
-        self.nodes.update({src.name: src for src in srcs})
+        self.tasks.update({tgt.name: tgt})
+        self.tasks.update({src.name: src for src in srcs})
     
-    def set_io(self, i_node: Node, o_node: Node):
-        if i_node.role == "client":
-            i_node.istream.q.append(queue.Queue(0))
+    def set_io(self, i_task: Task, o_task: Task):
+        if i_task.role == "client":
+            i_task.istream.q.append(queue.Queue(0))
         else:
-            i_node.istream.q.append(DistQueue(i_node.name, self.router))
+            i_task.istream.q.append(DistQueue(i_task.name, self.router))
         
-        if o_node.role == "client":
-            o_node.ostream.q.append(queue.Queue(0))
+        if o_task.role == "client":
+            o_task.ostream.q.append(queue.Queue(0))
         else:
-            o_node.ostream.q.append(DistQueue(o_node.name, self.router))
-        self.istream, self.ostream = i_node.istream, o_node.ostream
+            o_task.ostream.q.append(DistQueue(o_task.name, self.router))
+        self.istream, self.ostream = i_task.istream, o_task.ostream
 
     def start(self):
-        for name, node in self.nodes.items():
+        for name, task in self.tasks.items():
             self.router.register(name)
-            if node.role == self.role:
-                node.start()
+            if task.role == self.role:
+                task.start()

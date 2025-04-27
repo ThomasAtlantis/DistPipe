@@ -1,21 +1,19 @@
-import time
 from distpipe.distpipe import Node, Pipe
 from distpipe.transport import Router
 import logging
-import threading
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class Layer(Node):
 
     def process(self, data):
-        # print(f"{data[0]} + 1 -> {data[0] + 1}")
+        print(f"{data[0]} + 1 -> {data[0] + 1}")
         return data[0] + 1
 
 class DLayer(Node):
 
     def process(self, data):
-        # print(f"{data[0]} + {data[1]} -> {data[0] + data[1]}")
+        print(f"{data[0]} + {data[1]} -> {data[0] + data[1]}")
         return data[0] + data[1]
 
 class A():
@@ -52,8 +50,4 @@ if __name__ == "__main__":
         print(pipe.ostream.get()[0])
         pipe.istream.put(2)
         print(pipe.ostream.get()[0])
-        pipe.shutdown()
         router.shutdown()
-        time.sleep(3)
-        for thread in threading.enumerate():
-            print(thread.name)

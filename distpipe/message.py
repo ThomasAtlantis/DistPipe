@@ -1,17 +1,26 @@
+import enum
 import pickle
 import struct
 from typing import Tuple
 
 
 class Message:
-    header = ">32s I"
+    header = ">B I"
 
-    @staticmethod
-    def unpack(data: bytes) -> object:
+    class Type(enum.Enum):
+        SHUTDOWN = 1
+        PIPELINE = 2
+
+    @classmethod
+    def header_size(cls) -> int:
+        return struct.calcsize(cls.header)
+
+    @classmethod
+    def unpack(cls, data: bytes) -> object:
         return pickle.loads(data)
     
-    @staticmethod
-    def pack(mtype: str, mbody: object) -> Tuple[bytes, int]:
+    @classmethod
+    def pack(cls, mtype: Type, mbody: object) -> Tuple[bytes, int]:
         mbody = pickle.dumps(mbody)
-        data = struct.pack(Message.header, mtype.encode('utf-8'), len(mbody)) + mbody
+        data = struct.pack(cls.header, mtype.value, len(mbody)) + mbody
         return data, len(mbody)

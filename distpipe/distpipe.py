@@ -19,7 +19,7 @@ class IOStream:
 class Node(threading.Thread):
     
     def __init__(self, name, role='client'):
-        super().__init__(name=name)
+        super().__init__(name=name, daemon=True)
         self.istream = IOStream()
         self.ostream = IOStream()
         self.role = role
@@ -91,9 +91,3 @@ class Pipe:
             self.router.register(name)
             if node.role == self.role:
                 node.start()
-
-    def shutdown(self):
-        for name, node in self.nodes.items():
-            if node.role == self.role:
-                node.istream.put(None)
-                node.join()

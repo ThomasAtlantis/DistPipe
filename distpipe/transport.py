@@ -5,9 +5,7 @@ import socket
 import struct
 import threading
 import time
-import hashlib
 from .message import Message
-
 
 
 class Receiver(threading.Thread):
@@ -18,7 +16,7 @@ class Receiver(threading.Thread):
         self.skt = skt
         self.skt.listen(1)
 
-        self.header_size = struct.calcsize(Message.header)
+        self.header_size = Message.header_size()
         self.conn = None
 
     def close(self):
@@ -34,13 +32,15 @@ class Receiver(threading.Thread):
             try:
                 header = self.conn.recv(self.header_size, socket.MSG_WAITALL)
                 mtype, body_len = struct.unpack(Message.header, header)
+                mtype = Message.Type(mtype)
                 mbody = self.conn.recv(body_len, socket.MSG_WAITALL)
-                mtype = mtype.decode('utf-8')
                 mbody = Message.unpack(mbody)
             except Exception:
                 break
-            self.logger.debug(f"Received ({mtype}, {mbody})")
+            self.logger.debug(f"Received ({mtype.name}, {mbody})")
             self.queue.put((mtype, mbody))
+            if mtype == Message.Type.SHUTDOWN:
+                break
         self.logger.debug("Connection closed.")
         if self.conn: self.conn.close()
 
@@ -56,12 +56,11 @@ class Sender(threading.Thread):
     def run(self):
         while True:
             mtype, mbody = self.queue.get()
-            if mtype is None:
-                break
-            self.logger.debug(f"Sending({mtype}, {mbody})")
-            mtype = hashlib.md5(mtype.encode('utf-8')).hexdigest()
+            self.logger.debug(f"Sending({mtype.name}, {mbody})")
             data, body_len = Message.pack(mtype, mbody)
             self.skt.sendall(data)
+            if mtype == Message.Type.SHUTDOWN:
+                break
         self.logger.info("Sender shutdown")
 
 class Router:
@@ -94,6 +93,7 @@ class Router:
                 skt.bind(tuple(self.local_addr))
                 break
             except OSError:
+                self.logger.info("Failed to bind socket, retrying...")
                 if not poll: break
                 time.sleep(timeout)
         self.receiver = Receiver(skt, queue.Queue(0))
@@ -119,23 +119,25 @@ class Router:
     def dispatch(self):
         while not self.stop_dispatcher.is_set():
             if not self.receiver.queue.empty():
-                mtype, _ = self.receiver.queue.queue[0]
-                if mtype in self.queues:
-                    mtype, mbody = self.receiver.queue.get()
-                    self.queues[mtype].put(mbody)
+                mtype, mbody = self.receiver.queue.queue[0]
+                if mtype == Message.Type.SHUTDOWN:
+                    break
+                if mtype == Message.Type.PIPELINE and mbody[0] in self.queues:
+                    self.receiver.queue.get()
+                    self.queues[mbody[0]].put(mbody[1])
+        self.logger.info("Dispatcher shutdown")
+        self.shutdown()
 
     def register(self, name):
-        mtype = hashlib.md5(name.encode('utf-8')).hexdigest()
-        self.queues[mtype] = queue.Queue(0)
+        self.queues[name] = queue.Queue(0)
 
-    def send(self, mtype: str, mbody: object):
-        self.sender.queue.put((mtype, mbody))
+    def send(self, name: str, mbody: object):
+        self.sender.queue.put((Message.Type.PIPELINE, (name, mbody)))
 
-    def recv(self, mtype: str):
-        mtype = hashlib.md5(mtype.encode('utf-8')).hexdigest()
-        return self.queues[mtype].get()
+    def recv(self, name: str):
+        return self.queues[name].get()
     
     def shutdown(self):
-        self.sender.queue.put((None, None))
-        self.receiver.close()
+        self.sender.queue.put((Message.Type.SHUTDOWN, None))
         self.stop_dispatcher.set()
+        exit(0)

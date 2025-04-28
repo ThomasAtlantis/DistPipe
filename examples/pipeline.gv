@@ -1,0 +1,17 @@
+digraph pipeline {
+	compound=true
+	rankdir=LR
+	node [shape=box]
+	edge [arrowhead=onormal arrowsize=0.7]
+	subgraph cluster_client {
+		color=lightblue fillcolor="#F0F8FF" label=client penwidth=2 style="filled,rounded"
+		layer_1 -> layer_2
+		layer_1 -> layer_3
+		layer_2 -> layer_3
+	}
+	subgraph cluster_server {
+		color=lightblue fillcolor="#F0F8FF" label=server penwidth=2 style="filled,rounded"
+		layer_4 -> layer_5
+	}
+	layer_3 -> layer_4
+}

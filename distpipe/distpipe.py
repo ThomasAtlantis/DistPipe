@@ -1,6 +1,6 @@
 import queue
 import threading
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from .transport import Router
 
 
@@ -52,7 +52,7 @@ class DistQueue:
 class Pipe:
 
     def __init__(self, router: Router):
-        self.dependencies = []
+        self.dependencies: List[Tuple[Task, Task]] = []
         self.tasks: Dict[str, Task] = {}
         self.router = router
         self.role = router.role
@@ -70,7 +70,7 @@ class Pipe:
     def add(self, srcs: List[Task], tgt: Task):
         for src in srcs:
             self.connect(src, tgt)
-        self.dependencies.append((srcs, tgt))
+            self.dependencies.append((src, tgt))
         self.tasks.update({tgt.name: tgt})
         self.tasks.update({src.name: src for src in srcs})
     
@@ -91,3 +91,33 @@ class Pipe:
             self.router.register(name)
             if task.role == self.role:
                 task.start()
+    
+    def visualize(self, file_name='pipeline'):
+        import graphviz
+        
+        dot = graphviz.Digraph(file_name)
+        dot.attr(compound='true')
+        dot.attr(rankdir='LR')
+        dot.attr('node', shape='box')
+        dot.attr('edge', arrowhead="onormal", arrowsize="0.7")
+        for role in ['client', 'server']:
+            subgraph = graphviz.Digraph(name=f"cluster_{role}")
+            subgraph.attr(
+                style='filled,rounded',
+                color='lightblue',
+                fillcolor='#F0F8FF',
+                label=f"{role}",
+                penwidth='2' 
+            )
+            edges = []
+            for src, tgt in self.dependencies:
+                if src.role == tgt.role == role:
+                    edges.append((src.name, tgt.name))
+            subgraph.edges(edges)
+            dot.subgraph(subgraph)
+        edges = []
+        for src, tgt in self.dependencies:
+            if src.role != tgt.role:
+                edges.append((src.name, tgt.name))
+        dot.edges(edges)
+        dot.render(directory='.', format='pdf').replace('\\', '/')

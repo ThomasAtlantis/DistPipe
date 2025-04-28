@@ -47,6 +47,7 @@ if __name__ == "__main__":
     pipe = a_instance.pipeline(router)
 
     if pipe.role == "client":
+        pipe.visualize()
         pipe.istream.put(1)
         print(pipe.ostream.get()[0])
         pipe.istream.put(2)
